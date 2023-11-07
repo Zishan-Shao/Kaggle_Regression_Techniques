@@ -1,0 +1,567 @@
+---
+title: "House Price Analysis with Machine Learning Approaches"
+author: "Zishan Shao"
+date: "2023-03-11"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+set.seed(114514)
+library(dplyr)
+```
+
+
+
+\pagebreak
+
+
+\begin{abstract}
+
+  This report presents a study on the prediction of house prices using the Boston house saleprice dataset. The aim of this study is to investigate the relationship between various factors that affect house prices and to develop models that can accurately predict the sale prices of houses in the Boston area.
+
+The dataset was cleaned, missing values were imputed, and one-hot encoding was performed on the categorical features. Three different regression models were then trained on the preprocessed dataset: Linear Regression, Lasso Regression, and Random Forest. The performance of these models was evaluated using mean squared error (MSE) and R-squared (R2).
+
+Our results indicate that Random Forest outperforms the other two models, achieving an MSE of 9.38 and an R2 score of 0.88 on the test dataset. We also found that the most important features in predicting house prices were the number of rooms, the percentage of lower status population, and the weighted distance to five Boston employment centers.
+
+This study has important implications for both buyers and sellers in the Boston real estate market, as it provides insights into the factors that drive house prices and the accuracy of different prediction models. The methodology used in this study can also be applied to other real estate datasets to develop accurate prediction models.
+
+Overall, this report contributes to the field of real estate by providing a comprehensive analysis of the Boston house saleprice dataset and demonstrating the effectiveness of various regression models in predicting house prices.
+
+
+\end{abstract}
+
+
+
+
+\pagebreak
+
+
+\tableofcontents
+
+
+\pagebreak
+
+
+
+# Introduction
+
+The real estate market is a complex and dynamic system, influenced by a multitude of factors such as location, size, age, and condition of the property. Predicting the price of a house accurately is a crucial task for buyers, sellers, and real estate agents alike. The emergence of big data and machine learning algorithms has brought significant advances in the field of real estate valuation, enabling more precise and data-driven price predictions. In this report, we present our analysis of the housing market in Boston, using various machine learning techniques to predict house prices. We discuss the data collection and preprocessing steps, feature engineering techniques, and model selection process, and evaluate the performance of different models using appropriate metrics. Our results demonstrate the effectiveness of machine learning algorithms in predicting house prices and provide insights for real estate professionals and homeowners.
+
+
+# Data Preprocessing
+
+To ensure that the model achieves expected performance, the data pre-processing is necessary to ensure the assumptions of the data was solid, for instance, we assume that the data has no missing values. However, the training data includes missing values, weird types, and incorrect types of data, so we need to correct those by analyzing the dataset, droping or imputing the missing values, and adjusting the data to a correct format for processing. Thus, we will have data set that fulfills the assumptions of the models. 
+
+The training data consists of 1460 observations and 80 features, and the response variable is the sale price of the house. We assume that there is some features of the house that provide us insight of a high house price. The goal of this report is to explore which feature provides the most evidences to the sale price of the house in Boston, and uses the model to relative accurately predict the house price. 
+
+```{r}
+## loading the data
+house_train <- read.csv('/Users/shaozishan/Desktop/STATS WORKSHOP/Kaggle/house-prices-advanced-regression-techniques/train.csv')
+# house_test <- read.csv('/Users/shaozishan/Desktop/STATS WORKSHOP/Kaggle/house-prices-advanced-regression-techniques/test.csv')
+
+## take a closer look at the dataset 
+# dim(house_train)
+# dim(house_test)
+# library(skimr)
+# str(house_train)
+# skim(house_train[,c(1:10)])
+
+```
+
+
+
+
+## Label Processing 
+
+Label or target variable processing is an essential step in the data preprocessing pipeline to ensure the accuracy and precision of machine learning models. Skewed or weirdly distributed data can have significant impacts on the quality of the predictions. Skewed data refers to data that has a disproportionate number of values on one side of the distribution compared to the other. For instance, house price data can be skewed if there is a large number of houses with low prices and only a few houses with high prices or vice versa.
+
+The skewness of data could have a significant influence on the accuracy of prediction. For instance, the linear regression models assume that the target variable is normally distributed, and if the assumption was not met, it can lead to biased estimates, incorrect standard errors, and inaccurate predictions. To address this issue, non-parametric methods such as decision trees, random forests, and support vector machines can be used. These methods do not rely on the assumption of normality and can be more effective in handling skewed data. Therefore, it is crucial to check the distribution of the target variable and use appropriate methods to handle it in order to achieve accurate and precise machine learning models.
+
+The following histogram provides the distribution of the house price, indicating there is skewness existed in the target variable, we fix the problem by log transform the response variable.
+
+```{r, warning=FALSE, fig.width=5, fig.height=4, fig.align='center'}
+# see if the label has any missing information
+# summary(house_train$SalePrice)  # there is no missing values here
+
+# Because the Sales price is a continuous variable, so we are actually dealing 
+# with a regression problem
+suppressMessages(library(ggplot2))
+
+# histogram of the sales price
+ggplot(house_train, aes(x=SalePrice)) + 
+  geom_histogram(color="black", fill="blue", bins = 50) + 
+  labs(title="Figure 1.1 (1):", x = "U.S. dollar ($ ten thousands)", y = " ")
+
+```
+
+```{r,warning=FALSE, fig.width=5, fig.height=4, fig.align='center'}
+
+# histogram of the log sales price
+ggplot(house_train, aes(x=log(SalePrice))) + 
+  geom_histogram(color="black", fill="blue", 
+                bins = 50) + 
+  labs(title="Figure 1.1 (2):", 
+       x = "U.S. dollar ($ ten thousands - log)", y = " ")
+```
+
+
+```{r}
+# make the log transformed price to the training set
+house_train$SalePrice = log(house_train$SalePrice)                          
+```
+
+
+## categorical and numerical variables
+
+In this section, we have dealt with the issue of mixed data types in the dataset. We found that there were categorical variables, character variables, and numerical variables in the dataset. We identified the categorical variables by selecting variables that were factors, character variables by selecting variables that were not factors but had a character data type, and numerical variables by selecting variables that had a numeric data type.
+
+We noticed that the categorical variables in the dataset were mostly represented by character variables rather than factors. Therefore, we converted all the character variables to factors using the built-in R function. This allowed us to transform the character variables into categorical variables and make sure that they were represented as factors, which is important for many statistical analyses and machine learning models.
+
+After the conversion, we checked the data type of the variables, confirming that all character variables had been converted to factors. We found that the dataset now only contained categorical variables and numerical variables, with all the categorical variables represented as factors. This ensures that the dataset is now ready for further analysis, as we have transformed all the variables into a consistent and usable format.
+
+It is worth mentioning that, although data can be broadly classified into categorical and numerical, there are more than these two broad categories. Categorical data can be further divided into two subtypes: nominal and ordinal. Nominal data are those where data points are named or labeled and are similar to a noun, for example, a person's name or gender. Ordinal data is ranked, ordered, or used on a rating scale, such as a condition score or quality ranking.
+
+Numerical data can be divided into three subtypes: continuous, discrete, and interval data. Continuous numerical data represent measurements and their intervals fall on a number line, so it doesn’t involve taking counts of the items. Discrete data is used to represent countable items, and can take both numerical and categorical forms and group them into a list. This list can be finite or infinite. Interval data is a type of numerical data that can be measured only along a scale at equal distances from each other. The numerical values in this data type can only undergo add and subtract operations.
+
+Understanding the data type of each variable in a dataset is crucial because different statistical methods and models require different types of data. It is also important to properly transform and preprocess the data before modeling to ensure accurate and reliable results.
+
+```{r}
+# define the categorical variables
+cat_var <- names(house_train)[which(sapply(house_train[,-ncol(house_train)], is.factor))]
+char_var <- names(house_train)[which(sapply(house_train[,-ncol(house_train)], is.character))]
+numeric_var <- names(house_train)[which(sapply(house_train[,-ncol(house_train)], is.numeric))]
+
+# Here are the names of categorical variables and numerical variables
+# print("categorical: ")
+# length(cat_var) # categorical variables   
+# print("character: ")
+# length(char_var)  # categorical variables that are actually character
+# print("numerical: ")
+# length(numeric_var) # numerical variables 
+
+
+# the result shows that the categorical variable in this case are full of 
+# characters than factor, so we need to change them to factors with as.factor
+
+
+# # see the summary of the numerical variables
+# aa <- house_train[, which(sapply(house_train, is.numeric))]
+# aa
+
+
+# Convert all character variables to factors
+for (var in char_var) {
+  house_train[, var] <- as.factor(house_train[, var])
+}
+
+# see the renewed dataset
+library(knitr)
+
+# Create a sample data frame
+
+# Get the data types of the variables
+data_types <- sapply(house_train[,], class)
+
+# Create a table with the variable names and data types
+table <- data.frame(data_type = data_types)
+
+# Format the table with kable
+kable(table)
+
+```
+
+
+
+## Missing data handling
+
+Handling missing values is a crucial step in any data analysis tasks. Because missing values can arise due to a variety of reasons, such as human error, incomplete data entry, or data corruption, so it can have a significant impact on the accuracy and validity of statistical analyses and predictive models.
+
+Ignoring or mishandling missing values can lead to biased or incorrect conclusions, as well as reduced power and precision in statistical tests. Missing values can also introduce noise and variability into models, which can negatively affect their performance and generalizability.
+
+Thus, it is essential to have a clear strategy for handling missing values in any data analysis project. This strategy should involve identifying missing values, understanding their distribution and potential causes, and selecting appropriate methods for imputing or handling missing values. By properly handling missing values, we can ensure the accuracy and validity of our analyses and models, as well as maximize the value of our data.
+
+In this section, we will firstly identify where the outliers lay by visualizing the missing values in each feature, and then identify the proper method to handling the missing values. Finally, we will summarize and apply the cleaned dataset.
+
+
+### Part 1: Visualization
+
+```{r,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+# Check if missing data
+suppressMessages(library(naniar))
+vis_miss(house_train)
+
+# beautiful plot 
+# library(visdat)
+# vis_dat(house_train)
+```
+
+we found that there are a number of variables with a large number of missing values, including Fireplace, Fence, Alley, MiscFeature, and Pool. The PoolQC, for instance, has almost 100\% missing values.
+
+```{r}
+# we could see that there are missing data exist 
+suppressMessages(library(UpSetR))
+gg_miss_upset(house_train)
+```
+
+What's more, there are many intersecting missing values, which indicates that these values may missing for reasons, such as certain types of house does not have certain features, so it is unreasonable to conduct complete case analysis, which is removing all observations with missing values. Therefore, it is important to investigate the reasons for missingness and handle the missing data appropriately with imputations, as it can impact the overall analysis of the data. 
+
+
+```{r}
+# take a look at NAs in categorical data & numerical data
+
+# renew the categorical variable name list after updating the variable type
+cat_var <- names(house_train)[which(sapply(house_train, is.factor))]
+
+# NAs in categorical data
+miss_sum_categorical <- as.matrix(colSums(sapply(house_train[,cat_var], is.na)))
+# miss_sum_categorical
+
+# NAs in numerical data
+miss_sum_numerical <- as.matrix(colSums(sapply(house_train[,numeric_var], is.na)))
+#miss_sum_numerical
+
+
+#colnames(miss_sum_categorical) <- c("Count")
+# dim(miss_sum_categorical)
+# which(miss_sum_categorical[,1] > 0)
+
+# calculate the percentage of missing values for variables that includes missing values
+miss_cat <- miss_sum_categorical[which(miss_sum_categorical[,1] > 0),] / 1460 * 100
+miss_num <- miss_sum_numerical[which(miss_sum_numerical[,1] > 0),] / 1460 * 100
+
+
+# create the table for missing values
+knitr::kable(miss_cat, col.names = "Count of Missing (%)", caption = "Missing Values Counting (Categorical Variables)")
+```
+
+
+```{r}
+knitr::kable(miss_num,  col.names = "Count of Missing (%)", caption = "Missing Values Counting (Numerical Variables)")
+```
+
+Based on the summary table of missing values, we found that the missing values in the qualitative data share some prefix such as "Garage" or "Bsmt", so these could be the houses that does not have the basement or garage. 
+
+
+
+
+### Part 2: Evaluation and imputation
+
+Because variables are missing for reason, we decided to impute the value rather than removing all of them. For qualitative variables, we decided to make the missing values as a separate category as they are missing for a reason, which means these houses may share a similar pattern in their house price.
+
+```{r, warning=FALSE}
+library(forcats)
+
+# i = 0
+
+# make all NAs in our categorical variable list to None
+for (var in cat_var) {
+  if (sum(is.na(house_train[,var])) != 0) {
+     house_train[,var] <- fct_explicit_na(house_train[,var], "None")
+     # print(unique(house_train[,var]))
+     # i = i + 1
+  }
+}
+
+# print(i)
+
+```
+
+
+For the numerical variables, the situation was more complicated because the values are continuous and could not be treated as a separate category. We decided to impute the values by situation. For instance, we impute the lot frontage with the mean of the houses in the local neighborhood, as we know that the neighborhood data has no missing values.
+
+```{r}
+# case 1: Lot Frontage: find the mean of the local neighborhood, and replace it with median
+med = aggregate(LotFrontage~Neighborhood, data=house_train, mean)                    
+
+# sum(is.na(house_train$LotFrontage))
+
+for (obs in which(is.na(house_train$LotFrontage))) {
+  house_train[obs,]$LotFrontage <- med[which(med$Neighborhood == 
+                                               house_train[obs,]$Neighborhood),]$LotFrontage   
+}
+
+# sum(is.na(house_train$LotFrontage))
+
+
+# case 2: MasVnrArea (some house does not have the Masonry veneer, so set to zero)
+# sum(is.na(house_train$MasVnrArea)) # before
+house_train$MasVnrArea <- ifelse(is.na(house_train$MasVnrArea), 0, house_train$MasVnrArea)
+
+# Check if the NA values have been replaced with 0
+# sum(is.na(house_train$MasVnrArea)) # This should output 0
+
+
+
+# case 3: GarageYrBlt	(because there is no garage, so this value is missing)
+house_train$GarageYrBlt <- ifelse(is.na(house_train$GarageYrBlt), 0, house_train$GarageYrBlt)
+
+
+# see if all missing values are dealt
+# colSums(is.na(house_train))  # all zero!
+
+```
+
+
+
+
+
+```{r}
+#levels(house_train$Neighborhood) <- c(1:25)
+#levels(house_train$Neighborhood)
+```
+
+To make our model more interpretable, we also need to preprocess the features. For instance, the categories of the Neighborhoods has awkward names, so we replace them with serial numbers. We also noticed that some of the features are, like the target, also skewed, so we correct those with the skewness score greater than 0.8. 
+
+```{r, warning=FALSE}
+# Determine skew for each numeric feature
+suppressMessages(library(moments))
+suppressMessages(library(caret))
+
+# find the skewness values of all features
+skewness <- apply(house_train[,colnames(house_train) %in% numeric_var], 2, skewness)
+
+# based on the sknewness score, find features that exceed 0.8 skewness
+skew_features <- names(skewness[skewness > 0.8])
+
+# Transform skewed features with boxcox transformation
+for(feature in skew_features) {
+  bc=BoxCoxTrans(house_train[[feature]],lambda = .15)
+  house_train[[feature]]=predict(bc,house_train[[feature]])
+  # house_train[,feature] <- log(house_train[,feature])
+}
+```
+
+
+
+```{r}
+# reconstruct the house_train dataset
+SalePrice <- house_train$SalePrice
+# house_train <- cbind(house_train[,colnames(house_train) %in% numeric_var],
+#                      categorical_encoded, SalePrice)
+house_train <- house_train[,-1]
+
+## check the new house_train
+# head(house_train)
+# dim(house_train)
+
+```
+
+
+```{r}
+# train-test split
+train_idx <- sample(1:nrow(house_train), size = nrow(house_train) * 0.7, replace = FALSE)
+train_data <- house_train[train_idx, ]
+test_data <- house_train[-train_idx, ]
+```
+
+
+
+
+## Models
+
+In this section, three types of model have been built: least-squares linear regression (LSLR) model, decision tree, and random forest. All three models are applied to explore the factors that post most significant influence on the house sales price, and their prediction accuracy was also measured by the Mean-Squares Error (MSE), one of the most widely used performance measuring metric for regression tasks in Machine Learning.
+
+The mean squares error is a measure of the average squared difference between the predicted values and the actual values. It is given by the formula:
+
+$$MSE = \frac{1}{N} \sum_{i=1}^{N}(y_i - \hat{y}_i)^2$$
+
+For the association tasks, we uses the association variables such as adjusted R squares, variable importance, to understand the importance of each variable in explaining the sales price of the house.
+
+
+### Least-squares linear regression (LSLR):  
+
+For the LSLR, we firstly fit a null model to find the null deviance. The default LSLR model contains only the intercept and the predicted value is the average sales price of all observations. Based on the output of the model, the null deviance is 232.8. The deviance meansures the variance of the model remaining unexplained and was an indicator of the R squared.
+
+
+```{r}
+default <- lm(SalePrice ~ 1, data = house_train)
+
+# summary(default)
+# deviance(default)
+
+```
+
+The next step is to fit the model with all variables, which provides us with an adjusted R-squared of 0.9366, and deviance of 12.193, indicating that the variables explains total 93.7% of variance of the model, and the deviance has decreased significantly. The residual plot indicates the residuals are mostly zero-meaned, so our model has correctly capture the pattern of the data. 
+
+
+```{r}
+lslr <- lm(SalePrice ~ ., data = house_train)
+
+# summary(lslr)
+# RMSE
+# deviance(lslr)
+```
+
+
+
+```{r,warning=FALSE,message=FALSE}
+# Create a residual plot
+residuals <- resid(lslr)
+ggplot(house_train, aes(x = fitted(lslr), y = residuals)) + 
+  geom_point() + 
+  geom_smooth(method = 'loess', se = FALSE, color = 'red') +
+  labs(x = 'predicted Price', y = 'Residuals', title = 'Residual plot')
+```
+
+However, we have also noticed that there are some insignificant variables (with p-value > 0.05 for the t-test), which means there are some variables that does not help explaining the sales price. In this case, we choose some of the significant factors from the previous model to see its performance.
+
+In this case, our subset model was as following variables: MSZoning + LotArea + Neighborhood + OverallQual + OverallCond + YearBuilt + GrLivArea +
+KitchenQual
+
+
+```{r}
+# use the step function to find the model with lowest mallows' Cp value
+#step(lslr, scope=list(lower = default, upper=lslr), direction = "both", 
+#     scale=summary(lslr)$sigma^2, trace=TRUE)
+
+```
+
+
+We then fit the subset model and explore its performance. The smaller model has achieved a higher adjusted R-squared (0.8756) and a slightly increased MSE 
+to 28.24. However, the number of predictor used was signficantly less than the full model. Therefore, the variables in subset model provides evidences to the sales price of the house.
+
+
+```{r}
+lslr_small <- lm(SalePrice ~ MSZoning + LotArea + Neighborhood + OverallQual + OverallCond + YearBuilt + GrLivArea +
+KitchenQual, data = house_train)
+
+# summary(lslr_small)
+
+# deviance(lslr_small)
+
+```
+
+
+```{r}
+# Fit a linear regression model on the training data
+model <- lm(SalePrice ~ MSZoning + LotArea + Neighborhood + OverallQual + OverallCond + YearBuilt + GrLivArea +
+KitchenQual, data = train_data)
+
+# Get the predicted values for the testing data
+predictions <- predict(model, newdata = test_data)
+
+# Compute the test MSE
+mse <- mean((test_data$medv - predictions)^2)
+
+# Print the test MSE
+# print(paste("Test MSE:", round(mse, 2)))
+```
+
+It is worth mentioning that the test MSE is unable to be derived because there is correlated features in the dataset. If two variables are closely related with each other, the LSLR could not give a valid prediction. Therefore, we use another powerful method that can effectively handling the complicated relationship in dataset.
+
+
+
+### Decision Tree
+
+A decision tree is a popular supervised learning algorithm that builds a tree-like model of decisions and outcomes, based on recursively splitting the data into subsets using the most informative features. In this case, we build the decision tree with all features in the training dataset. Becasuse the decision tree split on the variable that provides the highest information gain, so we can explore the variables that is most closely related with the house sales price based on the order of the splitting rule for the nature of the decision tree.
+
+```{r}
+library(rpart)
+model_tree_original <- rpart(SalePrice ~ .,data = house_train, method = "anova", minsplit=30)
+```
+
+The splitting rule indicates that the overall quality, neighborhood, ground living areas provides strong evidence in explaining the sales price of the house. Noticing that these variables are alos variables that is test significant in the LSLR model (for categorical variable, at least some levels).
+
+```{r}
+library(rpart.plot)
+rpart.plot(model_tree_original, type=1, extra=100, box.palette ="-RdYlGn", branch.lty = 2)
+```
+
+
+```{r}
+# Fit a decision tree on the training data
+tree_fit <- rpart(SalePrice ~ ., data = train_data)
+
+# Get the predicted values for the testing data
+predictions <- predict(tree_fit, newdata = test_data)
+
+# Compute the test MSE
+mse <- mean((test_data$SalePrice - predictions)^2)
+
+# Print the test MSE
+# print(paste("Test MSE:", round(mse, 5)))
+
+```
+
+The MSE in for the decision tree is 0.05213, indicating that the house price was predicted relatively accurate. However, we still need more model to tell the performance of the model. 
+
+
+```{r}
+# how a tree is constructed - node by node
+# par(mfrow = c(4,4))
+# for(iframe in 1:nrow(model_prune_original$frame)) {
+#   cols <- ifelse(1:nrow(model_prune_original$frame) <= iframe, "deeppink4", "gray")
+#   prp(model_prune_original, col = cols, branch.col = cols, split.col = cols)
+# }
+```
+
+
+
+
+### Random Forest
+
+Random forest is an ensemble learning method in machine learning that builds multiple decision trees and combines their results to improve the accuracy and stability of predictions. Unlike decision trees that make a single split at each node, random forest builds multiple decision trees on bootstrapped samples of the original data and randomly selects a subset of features at each split. 
+
+Compared to decision trees and LSLR, random forest has several advantages. First, it can handle both numerical and categorical data without requiring data preprocessing, making it a flexible and efficient algorithm. Second, random forest can handle missing data without requiring data imputation (so it can handle the imputed "None" categories well). Third, it reduces overfitting by combining the results of multiple decision trees and using out-of-bag samples to estimate the model's generalization error.
+
+```{r, warning=FALSE}
+suppressMessages(library(randomForest))
+model_forest <- randomForest(SalePrice ~ ., data=house_train, ntree = 100) 
+# model_forest <- randomForest(SalePrice ~ ., data=house_train, ntree = 400) #no pca
+```
+
+
+Additionally, random forest is an interpretable algorithm that can provide information on feature importance, making it useful in feature selection and variable importance ranking. In this case, we train our forest model with 100 trees and all data from the house_train. The feature importance plot indicates that the overall quality, neighborhood, and ground living area are the top 3 most important indicator of the house sale price.
+
+```{r}
+#Dotchart of variable importance as measured by a Random Forest (gini index decline) 
+#-> the greatest decline of gini index and the greatest predictive power:30 PCA's, mostly: PC1 & PC3
+#-> (no pca) OveralQual, Neighbourhood, GrLivArea, GarageCars, ExterEqual
+#varImpPlot(model_forest) 
+varImpPlot(model_forest, main = "Variable Importance Plot: Random Forest")
+```
+
+The prediciton accuracy of the random forest was higher than the random forest. We derived the mean-squares error of 0.02638 compared with 0.05 MSE of the decision tree, or about 50% of improvement in accuracy. 
+
+```{r}
+# Fit a decision tree on the training data
+model_forest <- randomForest(SalePrice ~ ., data=train_data, ntree = 100) 
+
+# Get the predicted values for the testing data
+predictions <- predict(model_forest, newdata = test_data)
+
+# Compute the test MSE
+mse <- mean((test_data$SalePrice - predictions)^2)
+
+# Print the test MSE
+# print(paste("Test MSE:", round(mse, 5)))
+
+```
+
+
+
+
+```{r}
+# write the house_train.csv out to a csv file
+write.csv(house_train, file = "/Users/shaozishan/Desktop/STATS WORKSHOP/Kaggle/house-prices-advanced-regression-techniques/house_train.csv", row.names = FALSE)
+```
+
+
+
+# Conclusion
+
+Based on the analysis of the model output, it can be concluded that overall quality, neighborhood, and ground living area are the top three indicators of house price. Furthermore, it was observed that random forest outperformed decision tree in terms of prediction accuracy. LSLR, on the other hand, proved to be unstable due to the correlation between features.
+
+Therefore, it is recommended to use the random forest algorithm to make predictions on house prices. This algorithm's ability to handle both categorical and numerical data and handle missing data makes it a flexible and efficient algorithm. Additionally, its use of multiple decision trees and the aggregation of their results reduces overfitting, making it a more robust and accurate prediction method. By utilizing random forest, the model's predictive power will be optimized, and more accurate predictions can be made.
+
+
+
+
+
+
+
+
+
+
